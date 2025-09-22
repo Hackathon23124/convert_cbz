@@ -58,7 +58,7 @@ func main() {
 
 	// Handle version flag
 	if *showVersion {
-		fmt.Println("CBZ Converter v1.2.0")
+		fmt.Println("CBZ Converter v1.1.0")
 		fmt.Println("Converts folders containing images to CBZ comic book archives")
 		return
 	}
