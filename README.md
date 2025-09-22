@@ -2,6 +2,8 @@
 
 A high-performance, concurrent tool for converting folders containing images into CBZ (Comic Book Archive) files. Built in Go for speed and reliability.
 
+![convert_cbz logo](https://jelius.dev/assets/compressed/convert_cbz.webp)
+
 ## Features
 
 - **High Performance**: Multi-threaded processing with configurable concurrency
