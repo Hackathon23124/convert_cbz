@@ -40,6 +40,7 @@ type WorkItem struct {
 	FolderName string
 	SourcePath string
 	OutputPath string
+	DumbMode   bool
 }
 
 func main() {
@@ -48,6 +49,7 @@ func main() {
 		inputDir    = flag.String("input", "", "Input directory containing folders to convert (required)")
 		outputDir   = flag.String("output", "", "Output directory for CBZ files (required)")
 		threads     = flag.Int("threads", 4, "Number of concurrent threads")
+		dumbMode    = flag.Bool("dumb", false, "Archive all files without filtering (default: smart filtering)")
 		showHelp    = flag.Bool("help", false, "Show usage information")
 		showVersion = flag.Bool("version", false, "Show version information")
 	)
@@ -56,7 +58,7 @@ func main() {
 
 	// Handle version flag
 	if *showVersion {
-		fmt.Println("CBZ Converter v1.0.0")
+		fmt.Println("CBZ Converter v1.2.0")
 		fmt.Println("Converts folders containing images to CBZ comic book archives")
 		return
 	}
@@ -92,6 +94,12 @@ func main() {
 	logInfo(fmt.Sprintf("Input:  %s", *inputDir))
 	logInfo(fmt.Sprintf("Output: %s", *outputDir))
 
+	if *dumbMode {
+		logInfo("Mode: DUMB - archiving all files without filtering")
+	} else {
+		logInfo("Mode: SMART - filtering files intelligently")
+	}
+
 	// Get list of folders to process
 	folders, err := getFolders(*inputDir)
 	if err != nil {
@@ -113,6 +121,7 @@ func main() {
 			FolderName: folder,
 			SourcePath: filepath.Join(*inputDir, folder),
 			OutputPath: filepath.Join(*outputDir, folder+".cbz"),
+			DumbMode:   *dumbMode,
 		}
 	}
 
@@ -136,19 +145,23 @@ func showUsage() {
 	fmt.Println()
 	fmt.Println("OPTIONS:")
 	fmt.Println("  -threads int       Number of concurrent threads (default: 4)")
+	fmt.Println("  -dumb             Archive all files without filtering (default: false)")
 	fmt.Println("  -help             Show this help message")
 	fmt.Println("  -version          Show version information")
 	fmt.Println()
 	fmt.Println("EXAMPLES:")
 	fmt.Printf("  %s -input ./manga -output ./cbz\n", os.Args[0])
 	fmt.Printf("  %s -input /home/user/comics -output /home/user/cbz -threads 8\n", os.Args[0])
+	fmt.Printf("  %s -input ./raw -output ./archives -dumb\n", os.Args[0])
 	fmt.Println()
-	fmt.Println("The program will:")
-	fmt.Println("  1. Scan each folder in the input directory")
-	fmt.Println("  2. Detect image files using MIME type analysis")
-	fmt.Println("  3. Create compressed CBZ files in the output directory")
-	fmt.Println("  4. Skip existing CBZ files to avoid overwriting")
-	fmt.Println("  5. Report non-image files found but not included")
+	fmt.Println("MODES:")
+	fmt.Println("  SMART (default): Intelligently filters files to include:")
+	fmt.Println("    • Image files (JPEG, PNG, GIF, WebP, HEIF, etc.)")
+	fmt.Println("    • Text files (TXT, MD, NFO - metadata)")
+	fmt.Println("    • Video files (MP4, AVI, MKV - supplementary content)")
+	fmt.Println("    • Excludes: system files (.DS_Store, Thumbs.db), VCS (.git, .svn)")
+	fmt.Println()
+	fmt.Println("  DUMB (-dumb): Archives everything without any filtering")
 }
 
 func getFolders(dir string) ([]string, error) {
@@ -222,7 +235,7 @@ func processWorkItem(workerID int, item WorkItem, stats *ConversionStats) {
 	}
 
 	// Convert folder to CBZ
-	nonImageCount, err := convertToCBZ(item.SourcePath, item.OutputPath)
+	nonImageCount, err := convertToCBZ(item.SourcePath, item.OutputPath, item.DumbMode)
 	if err != nil {
 		logError(fmt.Sprintf("%s Conversion failed: %v", prefix, err))
 		stats.mu.Lock()
@@ -245,15 +258,29 @@ func processWorkItem(workerID int, item WorkItem, stats *ConversionStats) {
 	}
 }
 
-func convertToCBZ(sourceDir, cbzPath string) (int, error) {
-	// Scan directory for image and non-image files
-	imageFiles, nonImageFiles, err := analyzeDirectory(sourceDir)
-	if err != nil {
-		return 0, fmt.Errorf("failed to analyze directory: %w", err)
+func convertToCBZ(sourceDir, cbzPath string, dumbMode bool) (int, error) {
+	var includeFiles []string
+	var excludedCount int
+
+	if dumbMode {
+		// DUMB MODE: Include all files without any filtering
+		files, err := getAllFiles(sourceDir)
+		if err != nil {
+			return 0, fmt.Errorf("failed to scan directory: %w", err)
+		}
+		includeFiles = files
+		excludedCount = 0
+	} else {
+		// SMART MODE: Intelligently filter files
+		var err error
+		includeFiles, excludedCount, err = getSmartFilteredFiles(sourceDir)
+		if err != nil {
+			return 0, fmt.Errorf("failed to analyze directory: %w", err)
+		}
 	}
 
-	if len(imageFiles) == 0 {
-		return 0, fmt.Errorf("no image files found")
+	if len(includeFiles) == 0 {
+		return 0, fmt.Errorf("no files found to archive")
 	}
 
 	// Create CBZ file (which is just a ZIP with .cbz extension)
@@ -267,61 +294,158 @@ func convertToCBZ(sourceDir, cbzPath string) (int, error) {
 	zipWriter := zip.NewWriter(cbzFile)
 	defer zipWriter.Close()
 
-	// Add all image files to the ZIP archive
-	for _, imagePath := range imageFiles {
-		if err := addFileToZip(zipWriter, imagePath, sourceDir); err != nil {
+	// Add all selected files to the ZIP archive
+	for _, filePath := range includeFiles {
+		if err := addFileToZip(zipWriter, filePath, sourceDir); err != nil {
 			return 0, fmt.Errorf("failed to add file to archive: %w", err)
 		}
 	}
 
-	return len(nonImageFiles), nil
+	return excludedCount, nil
 }
 
-func analyzeDirectory(dir string) ([]string, []string, error) {
-	var imageFiles []string
-	var nonImageFiles []string
+// getAllFiles gets all files in directory for DUMB mode (no filtering)
+func getAllFiles(dir string) ([]string, error) {
+	var allFiles []string
 
-	// Walk through directory tree recursively
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Skip directories, only process files
-		if d.IsDir() {
-			return nil
-		}
-
-		// Determine if file is an image using MIME type detection
-		isImage, err := isImageFile(path)
-		if err != nil {
-			// If MIME detection fails, include file anyway (fail-safe approach)
-			// This prevents losing files due to permission issues or corrupted headers
-			logWarning(fmt.Sprintf("Could not determine file type for %s, including in archive", filepath.Base(path)))
-			imageFiles = append(imageFiles, path)
-		} else if isImage {
-			imageFiles = append(imageFiles, path)
-		} else {
-			// Track non-image files for reporting purposes
-			nonImageFiles = append(nonImageFiles, filepath.Base(path))
+		// Include all files, skip only directories
+		if !d.IsDir() {
+			allFiles = append(allFiles, path)
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	// Sort files for consistent ordering in the archive
-	// This ensures pages appear in the correct sequence
-	sort.Strings(imageFiles)
-	sort.Strings(nonImageFiles)
-
-	return imageFiles, nonImageFiles, nil
+	// Sort files for consistent ordering
+	sort.Strings(allFiles)
+	return allFiles, nil
 }
 
-func isImageFile(filePath string) (bool, error) {
+// getSmartFilteredFiles intelligently filters files for SMART mode
+func getSmartFilteredFiles(dir string) ([]string, int, error) {
+	var includedFiles []string
+	var excludedFiles []string
+
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories
+		if d.IsDir() {
+			return nil
+		}
+
+		fileName := d.Name()
+
+		// Check if file should be excluded (system files, VCS, etc.)
+		if shouldExcludeFile(fileName) {
+			excludedFiles = append(excludedFiles, fileName)
+			return nil
+		}
+
+		// For remaining files, check if they're useful content
+		isUseful, err := isUsefulFile(path)
+		if err != nil {
+			// If we can't determine, include it (fail-safe approach)
+			logWarning(fmt.Sprintf("Could not analyze file %s, including anyway", fileName))
+			includedFiles = append(includedFiles, path)
+		} else if isUseful {
+			includedFiles = append(includedFiles, path)
+		} else {
+			excludedFiles = append(excludedFiles, fileName)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Sort files for consistent ordering
+	sort.Strings(includedFiles)
+	return includedFiles, len(excludedFiles), nil
+}
+
+// shouldExcludeFile checks for obvious system/VCS files to exclude
+func shouldExcludeFile(fileName string) bool {
+	fileName = strings.ToLower(fileName)
+
+	// System files
+	systemFiles := []string{
+		".ds_store", "thumbs.db", "desktop.ini", ".directory",
+		"folder.jpg", "albumartsmall.jpg", ".picasa.ini",
+	}
+
+	for _, sysFile := range systemFiles {
+		if fileName == sysFile {
+			return true
+		}
+	}
+
+	// VCS directories/files
+	vcsPatterns := []string{
+		".git", ".svn", ".hg", ".bzr",
+		".gitignore", ".gitattributes", ".hgignore",
+	}
+
+	for _, pattern := range vcsPatterns {
+		if strings.Contains(fileName, pattern) {
+			return true
+		}
+	}
+
+	// IDE/Editor files
+	idePatterns := []string{
+		".vscode", ".idea", ".sublime-",
+		"*.swp", "*.swo", "*~",
+	}
+
+	for _, pattern := range idePatterns {
+		if strings.Contains(fileName, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isUsefulFile determines if a file is useful content for comic archives
+func isUsefulFile(filePath string) (bool, error) {
+	// First check by extension for quick decisions
+	ext := strings.ToLower(filepath.Ext(filePath))
+
+	// Text files that might contain metadata
+	textExtensions := map[string]bool{
+		".txt": true, ".md": true, ".nfo": true, ".info": true,
+		".readme": true, ".description": true, ".notes": true,
+	}
+
+	if textExtensions[ext] {
+		return true, nil
+	}
+
+	// Video files that might be supplementary content
+	videoExtensions := map[string]bool{
+		".mp4": true, ".avi": true, ".mkv": true, ".mov": true,
+		".wmv": true, ".flv": true, ".webm": true, ".m4v": true,
+	}
+
+	if videoExtensions[ext] {
+		return true, nil
+	}
+
+	// For files without clear extensions, use MIME detection
 	file, err := os.Open(filePath)
 	if err != nil {
 		return false, err
@@ -329,20 +453,24 @@ func isImageFile(filePath string) (bool, error) {
 	defer file.Close()
 
 	// Read first 512 bytes for MIME type detection
-	// This is sufficient for http.DetectContentType to identify most formats
 	buffer := make([]byte, 512)
 	_, err = file.Read(buffer)
 	if err != nil && err != io.EOF {
 		return false, err
 	}
 
-	// Use Go's built-in MIME type detection
-	// This checks file headers/magic bytes rather than relying on extensions
 	mimeType := http.DetectContentType(buffer)
 
-	// Any MIME type starting with "image/" is considered an image
-	// This includes JPEG, PNG, GIF, WebP, HEIF, AVIF, etc.
-	return strings.HasPrefix(mimeType, "image/"), nil
+	// Include images, text, and video content
+	usefulMimeTypes := []string{"image/", "text/", "video/"}
+
+	for _, prefix := range usefulMimeTypes {
+		if strings.HasPrefix(mimeType, prefix) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func addFileToZip(zipWriter *zip.Writer, filePath, baseDir string) error {
@@ -407,7 +535,7 @@ func printFinalStats(stats *ConversionStats) {
 	}
 
 	if stats.NonImageFiles > 0 {
-		logInfo(fmt.Sprintf("Non-image files:   %d (excluded)", stats.NonImageFiles))
+		logInfo(fmt.Sprintf("Files excluded:    %d (smart filtering)", stats.NonImageFiles))
 	}
 
 	// Calculate success rate

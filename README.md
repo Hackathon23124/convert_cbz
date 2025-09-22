@@ -6,7 +6,7 @@ A high-performance, concurrent tool for converting folders containing images int
 
 - **High Performance**: Multi-threaded processing with configurable concurrency
 - **Smart Detection**: MIME-type based image detection (supports JPEG, PNG, GIF, WebP, HEIF, AVIF, and more)
-- **Cross-Platform**: Runs on Linux, macOS, and various Unix systems
+- **Cross-Platform**: Runs on Linux, macOS, Windows, and various Unix systems
 - **Professional Logging**: Color-coded output with detailed progress tracking
 - **Safe Operations**: Skips existing files, handles errors gracefully
 - **Comprehensive Reporting**: Detailed statistics and non-image file detection
@@ -48,17 +48,23 @@ convert_cbz -input <input_folder> -output <output_folder> [options]
 | `-input` | Input directory containing folders to convert | *required* |
 | `-output` | Output directory for CBZ files | *required* |
 | `-threads` | Number of concurrent processing threads | `4` |
+| `-dumb` | Archive all files without filtering | `false` (smart mode) |
 | `-help` | Show usage information | - |
 | `-version` | Show version information | - |
 
 ### Examples
 
-Convert manga folders to CBZ files:
+Smart mode (default) - filters intelligently:
 ```bash
 convert_cbz -input ./manga -output ./cbz
 ```
 
-Use 8 threads for faster processing:
+Dumb mode - archives everything:
+```bash
+convert_cbz -input ./raw_folders -output ./archives -dumb
+```
+
+High-performance processing:
 ```bash
 convert_cbz -input /home/user/comics -output /home/user/cbz -threads 8
 ```
@@ -68,20 +74,51 @@ Show help:
 convert_cbz -help
 ```
 
+## Processing Modes
+
+### Smart Mode (Default)
+**Includes:**
+- **Images**: JPEG, PNG, GIF, WebP, HEIF, AVIF, BMP, TIFF
+- **Text files**: TXT, MD, NFO, INFO (metadata/descriptions)  
+- **Video files**: MP4, AVI, MKV, MOV (supplementary content)
+- **Any content with image/text/video MIME types**
+
+**Excludes:**
+- **System files**: .DS_Store, Thumbs.db, desktop.ini
+- **Version control**: .git, .svn, .hg directories and files
+- **IDE files**: .vscode, .idea, .sublime-project
+- **Temporary files**: .swp, .swo, *~ backup files
+
+### Dumb Mode (`-dumb`)
+**Includes:** Everything - all files and folders are archived without any filtering whatsoever
+
+**Use cases:**
+- Preserving complete directory structures
+- Archiving mixed content where filtering might remove needed files
+- When you want maximum control over what gets included
+
 ## How It Works
 
 1. **Directory Scanning**: Recursively scans each folder in the input directory
-2. **Image Detection**: Uses MIME type analysis to identify image files (not relying on file extensions)
+2. **Content Analysis**: 
+   - **Smart Mode**: Uses MIME type analysis and filename patterns to identify useful content
+   - **Dumb Mode**: Includes all files without any filtering
 3. **Archive Creation**: Creates compressed ZIP archives with `.cbz` extension
 4. **Concurrent Processing**: Distributes work across multiple threads for optimal performance
 5. **Progress Reporting**: Provides real-time feedback with colored logging
 
-## Supported Image Formats
+## Supported Content Types
 
-The tool automatically detects and includes:
-- **Common formats**: JPEG, PNG, GIF, BMP, TIFF
-- **Modern formats**: WebP, HEIF, AVIF
-- **Future formats**: Any format with proper MIME type headers
+### Smart Mode Detection
+- **Images**: Automatic MIME type detection for all formats
+- **Text**: Extensions (.txt, .md, .nfo) + text/* MIME types  
+- **Video**: Extensions (.mp4, .avi, .mkv) + video/* MIME types
+- **Unknown**: Fail-safe inclusion for unidentifiable files
+
+### All Formats Include
+- **Image formats**: JPEG, PNG, GIF, BMP, TIFF, WebP, HEIF, AVIF
+- **Video formats**: MP4, AVI, MKV, MOV, WMV, FLV, WebM
+- **Text formats**: TXT, MD, NFO, INFO, README
 
 ## Output Structure
 
@@ -114,15 +151,17 @@ The tool provides professional logging with color-coded output:
 [INFO] Starting CBZ conversion with 4 threads
 [INFO] Input:  ./manga
 [INFO] Output: ./cbz
+[INFO] Mode: SMART - filtering files intelligently
 [INFO] Found 199 folders to process
 [WORKER 1] Processing: [Author] Title Chapter 1
 [OK] [WORKER 1] Created: Title Chapter 1.cbz
-[WARN] [WORKER 2] Found 2 non-image files (excluded from CBZ)
+[WARN] [WORKER 2] Found 2 files excluded by smart filtering
 ...
 [INFO] Conversion completed
 [INFO] Total folders:     199
 [OK] Successful:        197
 [WARN] Skipped:           2
+[INFO] Files excluded:    15 (smart filtering)
 [INFO] Success rate:      100.0%
 ```
 
@@ -177,8 +216,29 @@ This project is released under the MIT License.
 
 ### Common Issues
 
-**Q: "No image files found" error**
-- Check that folders contain actual image files
+**Q: "No files found to archive" error**
+- Smart mode: Check that folders contain images, text, or video files
+- Dumb mode: Verify the folder actually contains files
+- Check file permissions are readable
+
+**Q: Too many/few files being included**
+- Use `-dumb` for complete archiving without filtering
+- Smart mode intentionally excludes system files and VCS data
+- Check the excluded files count in the final statistics
+
+**Q: CBZ files not opening in comic readers**
+- Ensure input folders contain valid image files
+- Some readers may need specific file ordering
+- Try both smart and dumb modes to see which works better
+
+**Q: Permission denied errors**
+- Check read permissions on input directory  
+- Check write permissions on output directory
+- Run with appropriate user privileges
+
+**Q: High memory usage**
+- Reduce thread count with `-threads` flag
+- Process smaller batches of folders Check that folders contain actual image files
 - Verify file permissions are readable
 
 **Q: High memory usage**
